@@ -7,10 +7,10 @@ typedef struct {
     float skew;
 } SimpleWaveSynthParameters;
 
-float simpleSineWaveSynth(SimpleWaveSynthParameters* params, int sample);
+float simpleSineWaveSynth(SimpleWaveSynthParameters* params, long sample);
 
-float simpleSquareWaveSynth(SimpleWaveSynthParameters* params, int sample);
+float simpleSquareWaveSynth(SimpleWaveSynthParameters* params, long sample);
 
-float simpleTriangleWaveSynth(SimpleWaveSynthParameters* params, int sample);
+float simpleTriangleWaveSynth(SimpleWaveSynthParameters* params, long sample);
 
 #endif
