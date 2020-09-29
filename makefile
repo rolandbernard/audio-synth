@@ -6,10 +6,10 @@ SDIR=./src
 
 CC=gcc
 LINK=gcc
-DFLAGS=-g -O0 -fsanitize=address,undefined
+DFLAGS=-g -O0
 RFLAGS=-O3
 CFLAGS=-I$(IDIR) -Wall $(DFLAGS)
-LIBS=-lpthread -lportaudio -lportmidi
+LIBS=-lpthread -lportaudio -lportmidi -lm
 
 _SRC=$(wildcard $(SDIR)/*/*.c) $(wildcard $(SDIR)/*.c)
 OBJ=$(patsubst $(SDIR)/%.c,$(ODIR)/%.o,$(_SRC))
