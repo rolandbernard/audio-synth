@@ -26,7 +26,7 @@ all: $(BIN)
 install: all
 	cp $(BIN) /usr/bin/
 
-$(BDIR)/tumble: $(OBJ)
+$(BDIR)/synth: $(OBJ)
 	mkdir -p `dirname $@`
 	$(LINK) $(CFLAGS) -o $@ $^ $(LIBS)
 
