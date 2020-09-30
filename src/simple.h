@@ -3,14 +3,13 @@
 
 typedef struct {
     int sample_rate;
-    float frequency;
     float skew;
 } SimpleWaveSynthParameters;
 
-float simpleSineWaveSynth(SimpleWaveSynthParameters* params, long sample);
+float simpleSineWaveSynth(SimpleWaveSynthParameters* params, float frequency, long sample);
 
-float simpleSquareWaveSynth(SimpleWaveSynthParameters* params, long sample);
+float simpleSquareWaveSynth(SimpleWaveSynthParameters* params, float frequency, long sample);
 
-float simpleTriangleWaveSynth(SimpleWaveSynthParameters* params, long sample);
+float simpleTriangleWaveSynth(SimpleWaveSynthParameters* params, float frequency, long sample);
 
 #endif
