@@ -8,6 +8,7 @@
 #include <limits.h>
 
 #include "simple.h"
+#include "compination.h"
 #include "ahdsr.h"
 
 #define SAMPLE_RATE 44100
@@ -16,15 +17,39 @@
 #define POLYPHONY 256
 
 SimpleWaveSynthInstrumentData params = {SAMPLE_RATE, 0.1};
+SynthInstrumentData* instr_data[] = { (SynthInstrumentData*)&params, (SynthInstrumentData*)&params };
+SynthInstrumentFunction instr_func[] = { (SynthInstrumentFunction)simpleSineWaveSynth, (SynthInstrumentFunction)simpleTriangleWaveSynth };
+MultiAdditiveInstrumentData addit = {
+    .sample_rate = SAMPLE_RATE,
+    .instrument_count = 2,
+    .base_instrument_data = instr_data,
+    .base_instrument_function = instr_func,
+};
+float delays[] = { 0.0, 0.01, 0.02 };
+MultiDelayEffectData delay = {
+    .sample_rate = SAMPLE_RATE,
+    .base_instrument_data = (SynthInstrumentData*)&addit,
+    .base_instrument_function = (SynthInstrumentFunction)multiAdditiveInstrument,
+    .delay_count = sizeof(delays)/sizeof(delays[0]),
+    .delays = delays,
+};
+float multipl[] = { 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0 };
+MultiOctaveEffectData effect = {
+    .sample_rate = SAMPLE_RATE,
+    .base_instrument_data = (SynthInstrumentData*)&delay,
+    .base_instrument_function = (SynthInstrumentFunction)multiDelayEffect,
+    .multiplier_count = sizeof(multipl)/sizeof(multipl[0]),
+    .multipliers = multipl,
+};
 AhdsrEnvelopeData instrument = {
     .sample_rate = SAMPLE_RATE,
-    .base_instrument_data = (SynthInstrumentData*)&params,
-    .base_instrument_function = (SynthInstrumentFunction)simpleTriangleWaveSynth,
-    .delay = 0.1,
+    .base_instrument_data = (SynthInstrumentData*)&effect,
+    .base_instrument_function = (SynthInstrumentFunction)multiOctaveEffect,
+    .delay = 0.0,
     .attack = 0.05,
-    .hold = 0.1,
+    .hold = 0.2,
     .decay = 1.0,
-    .sustain = 0.0,
+    .sustain = 0.5,
     .release = 0.5,
 };
 int sample = 0;
@@ -50,7 +75,7 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
             }
         }
         for(int c = 0; c < CHANNELS; c++) {
-            out[s][c] = v / 20;
+            out[s][c] = v / 30;
         }
         sample++;
     }
@@ -58,6 +83,15 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
 }
 
 int main(int argc, char** argv) {
+    for(int i = 0; i < POLYPHONY; i++) {
+        notes[i].sample_from_noteoff = -1;
+        notes[i].sample_from_noteon = -1;
+        notes[i].reached_end = true;
+    }
+    for(int i = 0; i < 128; i++) {
+        note_to_last_notes[i] = -1;
+    }
+
     PaStream* audio_stream;
     freopen("/dev/null","w",stderr);
     Pa_Initialize(); 
@@ -76,14 +110,6 @@ int main(int argc, char** argv) {
     if(err) {   
         fprintf(stderr, "err: %s\n", Pm_GetErrorText(err));
         return 1;
-    }
-    for(int i = 0; i < POLYPHONY; i++) {
-        notes[i].sample_from_noteoff = -1;
-        notes[i].sample_from_noteon = -1;
-        notes[i].reached_end = true;
-    }
-    for(int i = 0; i < 128; i++) {
-        note_to_last_notes[i] = -1;
     }
 
     for(;;) {
