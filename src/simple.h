@@ -1,15 +1,17 @@
 #ifndef _SIMPLE_H_
 #define _SIMPLE_H_
 
+#include "synth-interface.h"
+
 typedef struct {
-    int sample_rate;
+    SYNTH_INSTRUMENT_DATA_BASE
     float skew;
-} SimpleWaveSynthParameters;
+} SimpleWaveSynthInstrumentData;
 
-float simpleSineWaveSynth(SimpleWaveSynthParameters* params, float frequency, long sample);
+float simpleSineWaveSynth(SimpleWaveSynthInstrumentData* instrument, SynthNoteData* note);
 
-float simpleSquareWaveSynth(SimpleWaveSynthParameters* params, float frequency, long sample);
+float simpleSquareWaveSynth(SimpleWaveSynthInstrumentData* instrument, SynthNoteData* note);
 
-float simpleTriangleWaveSynth(SimpleWaveSynthParameters* params, float frequency, long sample);
+float simpleTriangleWaveSynth(SimpleWaveSynthInstrumentData* instrument, SynthNoteData* note);
 
 #endif

@@ -13,16 +13,11 @@
 #define CHANNELS 2
 #define BIT_SIZE 16
 
-SimpleWaveSynthParameters params = {SAMPLE_RATE, 0.5};
+SimpleWaveSynthInstrumentData params = {SAMPLE_RATE, 0.5};
 int sample = 0;
 
-typedef struct {
-    float frequency;
-    long sample;
-} NoteInformation;
-
 int num_notes = 0;
-volatile NoteInformation notes[127];
+SynthNoteData notes[128];
 
 int audioCallback(const void* input, void* output, uint64_t frame_count, const PaStreamCallbackTimeInfo* time_info, PaStreamCallbackFlags status_flage, void* user_data) {
     float (*out)[CHANNELS] = (float(*)[CHANNELS])output;
@@ -32,12 +27,13 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
         // float v = simpleTriangleWaveSynth(&params, sample);
         float v = 0;
         for(int i = 0; i < 127; i++) {
-            if(notes[i].sample >= 0) {
-                v += simpleSineWaveSynth(&params, powf(2, (i - 69.0) / 12.0) * 440, notes[i].sample++);
+            if(notes[i].sample_from_noteoff < 0 && notes[i].sample_from_noteon >= 0) {
+                v += simpleTriangleWaveSynth(&params, &notes[i]);
+                notes[i].sample_from_noteon++;
             }
         }
         for(int c = 0; c < CHANNELS; c++) {
-            out[s][c] = v;
+            out[s][c] = v / 20;
         }
         sample++;
     }
@@ -54,12 +50,20 @@ int main(int argc, char** argv) {
     
     Pm_Initialize();
     PortMidiStream* midi_stream;
+    // int device_count = Pm_CountDevices();
+    // for(int i = 0; i < device_count; i++) {
+    //     const PmDeviceInfo* device = Pm_GetDeviceInfo(i);
+    //     fprintf(stderr, "%s\n", device->name);
+    // }
     PmError err = Pm_OpenInput(&midi_stream, 3, NULL, 64, NULL, NULL);
     if(err) {   
         fprintf(stderr, "err: %s\n", Pm_GetErrorText(err));
+        return 1;
     }
     for(int i = 0; i < 127; i++) {
-        notes[i].sample = LONG_MIN;
+        notes[i].frequency = note_frequencies[i];
+        notes[i].sample_from_noteoff = -1;
+        notes[i].sample_from_noteon = -1;
     }
 
     for(;;) {
@@ -70,9 +74,12 @@ int main(int argc, char** argv) {
             if(len > 0) {
                 for (int i = 0; i < len; i++) {
                     if ((Pm_MessageStatus(buffer[i].message) & 0xf0) == 0x90) {
-                        notes[Pm_MessageData1(buffer[i].message)].sample = 0;
+                        int note_num = Pm_MessageData1(buffer[i].message);
+                        notes[note_num].sample_from_noteon = 0;
+                        notes[note_num].sample_from_noteoff = -1;
                     } else if ((Pm_MessageStatus(buffer[i].message) & 0xf0) == 0x80) {
-                        notes[Pm_MessageData1(buffer[i].message)].sample = LONG_MIN;
+                        int note_num = Pm_MessageData1(buffer[i].message);
+                        notes[note_num].sample_from_noteoff = notes[note_num].sample_from_noteon;
                     } else {
                         fprintf(stderr, "%hhu, %hhu, %hhu\n", Pm_MessageStatus(buffer[i].message), Pm_MessageData1(buffer[i].message), Pm_MessageData2(buffer[i].message));
                     }
