@@ -9,12 +9,14 @@ float ahdsrEnvelope(AhdsrEnvelopeData* data, SynthNoteData* note) {
     } else {
         float scale = 0;
         float time = (float)note->sample_from_noteon / (float)data->sample_rate;
-        if (time < data->attack) {
-            scale = time / data->attack;
-        } else if (time - data->attack < data->hold) {
+        if(time < data->delay) {
+            scale = 0.0;
+        } else if (time - data->delay < data->attack) {
+            scale = (time - data->delay) / data->attack;
+        } else if (time - data->delay - data->attack < data->hold) {
             scale = 1.0;
-        } else if (time - data->attack - data->hold < data->decay) {
-            scale = (1.0 - ((time - data->attack - data->hold) / data->decay)) * (1.0 - data->sustain) + data->sustain;
+        } else if (time - data->delay - data->attack - data->hold < data->decay) {
+            scale = (1.0 - ((time - data->delay - data->attack - data->hold) / data->decay)) * (1.0 - data->sustain) + data->sustain;
         } else {
             if (data->sustain == 0.0) {
                 note->reached_end = true;

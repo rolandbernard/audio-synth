@@ -20,6 +20,7 @@ AhdsrEnvelopeData instrument = {
     .sample_rate = SAMPLE_RATE,
     .base_instrument_data = (SynthInstrumentData*)&params,
     .base_instrument_function = (SynthInstrumentFunction)simpleTriangleWaveSynth,
+    .delay = 0.1,
     .attack = 0.05,
     .hold = 0.1,
     .decay = 1.0,

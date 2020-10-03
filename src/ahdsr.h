@@ -7,6 +7,7 @@ typedef struct {
     SYNTH_INSTRUMENT_DATA_BASE
     SynthInstrumentData* base_instrument_data;
     SynthInstrumentFunction base_instrument_function;
+    float delay;
     float attack;
     float hold;
     float decay;
