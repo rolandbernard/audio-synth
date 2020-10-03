@@ -8,7 +8,7 @@ CC=gcc
 LINK=gcc
 DFLAGS=-g -O0
 RFLAGS=-O3
-CFLAGS=-I$(IDIR) -Wall $(DFLAGS)
+CFLAGS=-I$(IDIR) -Wall $(DFLAGS) -fsanitize=address
 LIBS=-lpthread -lportaudio -lportmidi -lm
 
 _SRC=$(wildcard $(SDIR)/*/*.c) $(wildcard $(SDIR)/*.c)
