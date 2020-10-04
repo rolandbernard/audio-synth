@@ -21,7 +21,7 @@ typedef struct {
     bool reached_end;
 } SynthNoteData;
 
-typedef float (*SynthInstrumentFunction)(SynthEnviormentData* env, SynthInstrumentData* instrument, SynthNoteData* note);
+typedef void (*SynthInstrumentFunction)(SynthEnviormentData* env, SynthInstrumentData* instrument, SynthNoteData* note, int len, float* out);
 
 extern float note_frequencies[128];
 

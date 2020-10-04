@@ -7,6 +7,7 @@
 #include <math.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "simple.h"
 #include "compination.h"
@@ -15,7 +16,7 @@
 #define SAMPLE_RATE 44100
 #define CHANNELS 2
 #define BIT_SIZE 16
-#define POLYPHONY 256
+#define POLYPHONY 50
 
 SynthEnviormentData env = { SAMPLE_RATE };
 SimpleWaveSynthInstrumentData params = { 0.1 };
@@ -26,17 +27,10 @@ MultiAdditiveInstrumentData addit = {
     .base_instrument_data = instr_data,
     .base_instrument_function = instr_func,
 };
-float delays[] = { 0.0, 0.05, 0.1 };
-MultiDelayEffectData delay = {
+float multipl[] = { 1.0, 1.001 };
+MultiOctaveEffectData effect = {
     .base_instrument_data = (SynthInstrumentData*)&addit,
     .base_instrument_function = (SynthInstrumentFunction)multiAdditiveInstrument,
-    .delay_count = sizeof(delays)/sizeof(delays[0]),
-    .delays = delays,
-};
-float multipl[] = { 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0 };
-MultiOctaveEffectData effect = {
-    .base_instrument_data = (SynthInstrumentData*)&delay,
-    .base_instrument_function = (SynthInstrumentFunction)multiDelayEffect,
     .multiplier_count = sizeof(multipl)/sizeof(multipl[0]),
     .multipliers = multipl,
 };
@@ -45,10 +39,10 @@ AhdsrEnvelopeData instrument = {
     .base_instrument_function = (SynthInstrumentFunction)multiOctaveEffect,
     .delay = 0.0,
     .attack = 0.05,
-    .hold = 0.2,
-    .decay = 1.0,
-    .sustain = 0.5,
-    .release = 0.5,
+    .hold = 0.05,
+    .decay = 2.0,
+    .sustain = 0.0,
+    .release = 0.25,
 };
 int sample = 0;
 
@@ -58,24 +52,23 @@ int note_to_last_notes[128];
 
 int audioCallback(const void* input, void* output, uint64_t frame_count, const PaStreamCallbackTimeInfo* time_info, PaStreamCallbackFlags status_flage, void* user_data) {
     float (*out)[CHANNELS] = (float(*)[CHANNELS])output;
-    for(int s = 0; s < frame_count; s++) {
-        // out[s][c] = simpleSineWaveSynth(&params, sample);
-        // out[s][c] = simpleSquareWaveSynth(&params, sample);
-        // float v = simpleTriangleWaveSynth(&params, sample);
-        float v = 0;
-        for(int i = 0; i < POLYPHONY; i++) {
-            if(!notes[i].reached_end) {
-                v += ahdsrEnvelope(&env, &instrument, &notes[i]);
-                notes[i].sample_from_noteon++;
-                if(notes[i].sample_from_noteoff >= 0) {
-                    notes[i].sample_from_noteoff++;
-                }
+    float tmp_out[frame_count];
+    for(int i = 0; i < frame_count; i++) {
+        tmp_out[i] = 0;
+    }
+    for(int i = 0; i < POLYPHONY; i++) {
+        if(!notes[i].reached_end) {
+            ahdsrEnvelope(&env, &instrument, &notes[i], frame_count, tmp_out);
+            notes[i].sample_from_noteon += frame_count;
+            if(notes[i].sample_from_noteoff >= 0) {
+                notes[i].sample_from_noteoff += frame_count;
             }
         }
-        for(int c = 0; c < CHANNELS; c++) {
-            out[s][c] = v / 30;
+    }
+    for(int i = 0; i < frame_count; i++) {
+        for (int c = 0; c < CHANNELS; c++) {
+            out[i][c] = tmp_out[i] / 200;
         }
-        sample++;
     }
     return 0;
 }
@@ -89,13 +82,6 @@ int main(int argc, char** argv) {
     for(int i = 0; i < 128; i++) {
         note_to_last_notes[i] = -1;
     }
-
-    PaStream* audio_stream;
-    freopen("/dev/null","w",stderr);
-    Pa_Initialize(); 
-    freopen("/dev/tty","w",stderr);
-    Pa_OpenDefaultStream(&audio_stream, 0, CHANNELS, paFloat32, SAMPLE_RATE, paFramesPerBufferUnspecified, audioCallback, NULL);
-    Pa_StartStream(audio_stream);
     
     Pm_Initialize();
     PortMidiStream* midi_stream;
@@ -114,6 +100,13 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
+    PaStream* audio_stream;
+    freopen("/dev/null","w",stderr);
+    Pa_Initialize(); 
+    freopen("/dev/tty","w",stderr);
+    Pa_OpenDefaultStream(&audio_stream, 0, CHANNELS, paFloat32, SAMPLE_RATE, paFramesPerBufferUnspecified, audioCallback, NULL);
+    Pa_StartStream(audio_stream);
+
     for(;;) {
         PmError poll = Pm_Poll(midi_stream);
         if(poll > 0) {
@@ -124,13 +117,13 @@ int main(int argc, char** argv) {
                     if ((Pm_MessageStatus(buffer[i].message) & 0xf0) == 0x90) {
                         int note_num = Pm_MessageData1(buffer[i].message);
                         int note_vel = Pm_MessageData2(buffer[i].message);
-                        if(note_vel == 0) {
-                            int note_index = note_to_last_notes[note_num];
-                            if(note_index >= 0) {
-                                notes[note_index].sample_from_noteoff = 0;
-                                notes[note_index].noteoff_velocity = 64;
-                            }
-                        } else {
+                        int note_index = note_to_last_notes[note_num];
+                        if(note_index >= 0) {
+                            notes[note_index].sample_from_noteoff = 0;
+                            notes[note_index].noteoff_velocity = 64;
+                            note_to_last_notes[note_num] = -1;
+                        }
+                        if(note_vel > 0) {
                             notes[num_notes].frequency = note_frequencies[note_num];
                             notes[num_notes].sample_from_noteon = 0;
                             notes[num_notes].sample_from_noteoff = -1;
@@ -146,9 +139,10 @@ int main(int argc, char** argv) {
                         if(note_index >= 0) {
                             notes[note_index].sample_from_noteoff = 0;
                             notes[note_index].noteoff_velocity = note_vel;
+                            note_to_last_notes[note_num] = -1;
                         }
                     } else {
-                        fprintf(stderr, "%hhu, %hhu, %hhu\n", Pm_MessageStatus(buffer[i].message), Pm_MessageData1(buffer[i].message), Pm_MessageData2(buffer[i].message));
+                        fprintf(stderr, "%d, %d, %d\n", Pm_MessageStatus(buffer[i].message), Pm_MessageData1(buffer[i].message), Pm_MessageData2(buffer[i].message));
                     }
                 }
             } else if(len < 0) {
@@ -161,12 +155,12 @@ int main(int argc, char** argv) {
         }
         usleep(5000);
     }
-
-    Pm_Close(midi_stream);
-    Pm_Terminate(); 
     
     Pa_StopStream(audio_stream);
     Pa_CloseStream(audio_stream);
     Pa_Terminate();
+
+    Pm_Close(midi_stream);
+    Pm_Terminate(); 
     return EXIT_SUCCESS;
 }

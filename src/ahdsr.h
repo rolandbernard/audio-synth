@@ -14,6 +14,6 @@ typedef struct {
     float release;
 } AhdsrEnvelopeData;
 
-float ahdsrEnvelope(SynthEnviormentData* env, AhdsrEnvelopeData* data, SynthNoteData* note);
+void ahdsrEnvelope(SynthEnviormentData* env, AhdsrEnvelopeData* data, SynthNoteData* note, int len, float* out);
 
 #endif

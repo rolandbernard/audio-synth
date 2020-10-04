@@ -4,11 +4,11 @@ BDIR=./build/bin
 IDIR=./src
 SDIR=./src
 
-CC=gcc
-LINK=gcc
+CC=clang
+LINK=clang
 DFLAGS=-g -O0 -fsanitize=address
 RFLAGS=-O3
-CFLAGS=-I$(IDIR) -Wall $(RFLAGS)
+CFLAGS=-I$(IDIR) -Wall $(RFLAGS) -flto=thin
 LIBS=-lpthread -lportaudio -lportmidi -lm
 
 _SRC=$(wildcard $(SDIR)/*/*.c) $(wildcard $(SDIR)/*.c)
