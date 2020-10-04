@@ -3,20 +3,25 @@
 
 #include <stdbool.h>
 
-#define SYNTH_INSTRUMENT_DATA_BASE int sample_rate; 
+typedef struct {
+    int sample_rate;
+    int* controls;
+} SynthEnviormentData;
 
 typedef struct {
-    SYNTH_INSTRUMENT_DATA_BASE
 } SynthInstrumentData;
 
 typedef struct {
     float frequency;
     long sample_from_noteon;
+    int noteon_velocity;
+    int aftertouch;
     long sample_from_noteoff;
+    int noteoff_velocity;
     bool reached_end;
 } SynthNoteData;
 
-typedef float (*SynthInstrumentFunction)(SynthInstrumentData* instrument, SynthNoteData* note);
+typedef float (*SynthInstrumentFunction)(SynthEnviormentData* env, SynthInstrumentData* instrument, SynthNoteData* note);
 
 extern float note_frequencies[128];
 

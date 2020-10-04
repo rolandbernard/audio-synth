@@ -4,7 +4,6 @@
 #include "synth-interface.h"
 
 typedef struct {
-    SYNTH_INSTRUMENT_DATA_BASE
     SynthInstrumentData* base_instrument_data;
     SynthInstrumentFunction base_instrument_function;
     float delay;
@@ -15,6 +14,6 @@ typedef struct {
     float release;
 } AhdsrEnvelopeData;
 
-float ahdsrEnvelope(AhdsrEnvelopeData* data, SynthNoteData* note);
+float ahdsrEnvelope(SynthEnviormentData* env, AhdsrEnvelopeData* data, SynthNoteData* note);
 
 #endif

@@ -6,9 +6,9 @@ SDIR=./src
 
 CC=gcc
 LINK=gcc
-DFLAGS=-g -O0
+DFLAGS=-g -O0 -fsanitize=address
 RFLAGS=-O3
-CFLAGS=-I$(IDIR) -Wall $(DFLAGS) -fsanitize=address
+CFLAGS=-I$(IDIR) -Wall $(RFLAGS)
 LIBS=-lpthread -lportaudio -lportmidi -lm
 
 _SRC=$(wildcard $(SDIR)/*/*.c) $(wildcard $(SDIR)/*.c)

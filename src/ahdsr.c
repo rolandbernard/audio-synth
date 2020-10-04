@@ -3,12 +3,12 @@
 
 #include "ahdsr.h"
 
-float ahdsrEnvelope(AhdsrEnvelopeData* data, SynthNoteData* note) {
+float ahdsrEnvelope(SynthEnviormentData* env, AhdsrEnvelopeData* data, SynthNoteData* note) {
     if(note->reached_end) {
         return 0.0;
     } else {
         float scale = 0;
-        float time = (float)note->sample_from_noteon / (float)data->sample_rate;
+        float time = (float)note->sample_from_noteon / (float)env->sample_rate;
         if(time < data->delay) {
             scale = 0.0;
         } else if (time - data->delay < data->attack) {
@@ -30,7 +30,7 @@ float ahdsrEnvelope(AhdsrEnvelopeData* data, SynthNoteData* note) {
                 note->reached_end = true;
                 scale = 0;
             } else {
-                float time = (float)note->sample_from_noteoff / (float)data->sample_rate;
+                float time = (float)note->sample_from_noteoff / (float)env->sample_rate;
                 if (time > data->release) {
                     note->reached_end = true;
                     scale = 0;
@@ -39,6 +39,6 @@ float ahdsrEnvelope(AhdsrEnvelopeData* data, SynthNoteData* note) {
                 }
             }
         }
-        return scale * data->base_instrument_function(data->base_instrument_data, note);
+        return scale * data->base_instrument_function(env, data->base_instrument_data, note);
     }
 }

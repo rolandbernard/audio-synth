@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <limits.h>
+#include <stdlib.h>
 
 #include "simple.h"
 #include "compination.h"
@@ -16,18 +17,17 @@
 #define BIT_SIZE 16
 #define POLYPHONY 256
 
-SimpleWaveSynthInstrumentData params = {SAMPLE_RATE, 0.1};
-SynthInstrumentData* instr_data[] = { (SynthInstrumentData*)&params, (SynthInstrumentData*)&params };
-SynthInstrumentFunction instr_func[] = { (SynthInstrumentFunction)simpleSineWaveSynth, (SynthInstrumentFunction)simpleTriangleWaveSynth };
+SynthEnviormentData env = { SAMPLE_RATE };
+SimpleWaveSynthInstrumentData params = { 0.1 };
+SynthInstrumentData* instr_data[] = { (SynthInstrumentData*)&params, (SynthInstrumentData*)&params,  (SynthInstrumentData*)&params};
+SynthInstrumentFunction instr_func[] = { (SynthInstrumentFunction)simpleSineWaveSynth, (SynthInstrumentFunction)simpleTriangleWaveSynth, (SynthInstrumentFunction)simpleSquareWaveSynth };
 MultiAdditiveInstrumentData addit = {
-    .sample_rate = SAMPLE_RATE,
     .instrument_count = 2,
     .base_instrument_data = instr_data,
     .base_instrument_function = instr_func,
 };
-float delays[] = { 0.0, 0.01, 0.02 };
+float delays[] = { 0.0, 0.05, 0.1 };
 MultiDelayEffectData delay = {
-    .sample_rate = SAMPLE_RATE,
     .base_instrument_data = (SynthInstrumentData*)&addit,
     .base_instrument_function = (SynthInstrumentFunction)multiAdditiveInstrument,
     .delay_count = sizeof(delays)/sizeof(delays[0]),
@@ -35,14 +35,12 @@ MultiDelayEffectData delay = {
 };
 float multipl[] = { 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0 };
 MultiOctaveEffectData effect = {
-    .sample_rate = SAMPLE_RATE,
     .base_instrument_data = (SynthInstrumentData*)&delay,
     .base_instrument_function = (SynthInstrumentFunction)multiDelayEffect,
     .multiplier_count = sizeof(multipl)/sizeof(multipl[0]),
     .multipliers = multipl,
 };
 AhdsrEnvelopeData instrument = {
-    .sample_rate = SAMPLE_RATE,
     .base_instrument_data = (SynthInstrumentData*)&effect,
     .base_instrument_function = (SynthInstrumentFunction)multiOctaveEffect,
     .delay = 0.0,
@@ -67,7 +65,7 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
         float v = 0;
         for(int i = 0; i < POLYPHONY; i++) {
             if(!notes[i].reached_end) {
-                v += ahdsrEnvelope(&instrument, &notes[i]);
+                v += ahdsrEnvelope(&env, &instrument, &notes[i]);
                 notes[i].sample_from_noteon++;
                 if(notes[i].sample_from_noteoff >= 0) {
                     notes[i].sample_from_noteoff++;
@@ -101,15 +99,19 @@ int main(int argc, char** argv) {
     
     Pm_Initialize();
     PortMidiStream* midi_stream;
-    // int device_count = Pm_CountDevices();
-    // for(int i = 0; i < device_count; i++) {
-    //     const PmDeviceInfo* device = Pm_GetDeviceInfo(i);
-    //     fprintf(stderr, "%s\n", device->name);
-    // }
-    PmError err = Pm_OpenInput(&midi_stream, 3, NULL, 64, NULL, NULL);
+    int device_count = Pm_CountDevices();
+    for(int i = 0; i < device_count; i++) {
+        const PmDeviceInfo* device = Pm_GetDeviceInfo(i);
+        fprintf(stderr, "%i: %s\n", i, device->name);
+    }
+    fprintf(stderr, "Select id: ");
+    fflush(stderr);
+    int id;
+    fscanf(stdin, "%i", &id);
+    PmError err = Pm_OpenInput(&midi_stream, id, NULL, 64, NULL, NULL);
     if(err) {   
         fprintf(stderr, "err: %s\n", Pm_GetErrorText(err));
-        return 1;
+        return EXIT_FAILURE;
     }
 
     for(;;) {
@@ -121,17 +123,29 @@ int main(int argc, char** argv) {
                 for (int i = 0; i < len; i++) {
                     if ((Pm_MessageStatus(buffer[i].message) & 0xf0) == 0x90) {
                         int note_num = Pm_MessageData1(buffer[i].message);
-                        notes[num_notes].frequency = note_frequencies[note_num];
-                        notes[num_notes].sample_from_noteon = 0;
-                        notes[num_notes].sample_from_noteoff = -1;
-                        notes[num_notes].reached_end = false;
-                        note_to_last_notes[note_num] = num_notes;
-                        num_notes = (num_notes + 1) % POLYPHONY;
+                        int note_vel = Pm_MessageData2(buffer[i].message);
+                        if(note_vel == 0) {
+                            int note_index = note_to_last_notes[note_num];
+                            if(note_index >= 0) {
+                                notes[note_index].sample_from_noteoff = 0;
+                                notes[note_index].noteoff_velocity = 64;
+                            }
+                        } else {
+                            notes[num_notes].frequency = note_frequencies[note_num];
+                            notes[num_notes].sample_from_noteon = 0;
+                            notes[num_notes].sample_from_noteoff = -1;
+                            notes[num_notes].noteon_velocity = note_vel;
+                            notes[num_notes].reached_end = false;
+                            note_to_last_notes[note_num] = num_notes;
+                            num_notes = (num_notes + 1) % POLYPHONY;
+                        }
                     } else if ((Pm_MessageStatus(buffer[i].message) & 0xf0) == 0x80) {
                         int note_num = Pm_MessageData1(buffer[i].message);
+                        int note_vel = Pm_MessageData2(buffer[i].message);
                         int note_index = note_to_last_notes[note_num];
                         if(note_index >= 0) {
                             notes[note_index].sample_from_noteoff = 0;
+                            notes[note_index].noteoff_velocity = note_vel;
                         }
                     } else {
                         fprintf(stderr, "%hhu, %hhu, %hhu\n", Pm_MessageStatus(buffer[i].message), Pm_MessageData1(buffer[i].message), Pm_MessageData2(buffer[i].message));
@@ -139,9 +153,11 @@ int main(int argc, char** argv) {
                 }
             } else if(len < 0) {
                 fprintf(stderr, "err: %s\n", Pm_GetErrorText(err));
+                return EXIT_FAILURE;
             }
         } else if(poll < 0) {
             fprintf(stderr, "err: %s\n", Pm_GetErrorText(err));
+            return EXIT_FAILURE;
         }
         usleep(5000);
     }
@@ -152,5 +168,5 @@ int main(int argc, char** argv) {
     Pa_StopStream(audio_stream);
     Pa_CloseStream(audio_stream);
     Pa_Terminate();
-    return 0;
+    return EXIT_SUCCESS;
 }
