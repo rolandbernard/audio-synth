@@ -16,7 +16,7 @@
 #define SAMPLE_RATE 44100
 #define CHANNELS 2
 #define BIT_SIZE 16
-#define POLYPHONY 50
+#define POLYPHONY 500
 
 SynthEnviormentData env = { SAMPLE_RATE };
 SimpleWaveSynthInstrumentData params = { 0.1 };
@@ -27,10 +27,17 @@ MultiAdditiveInstrumentData addit = {
     .base_instrument_data = instr_data,
     .base_instrument_function = instr_func,
 };
-float multipl[] = { 1.0, 1.001 };
-MultiOctaveEffectData effect = {
+float delays[] = { 0.0, 0.005, 0.01 };
+MultiDelayEffectData delay = {
     .base_instrument_data = (SynthInstrumentData*)&addit,
     .base_instrument_function = (SynthInstrumentFunction)multiAdditiveInstrument,
+    .delay_count = sizeof(delays)/sizeof(delays[0]),
+    .delays = delays,
+};
+float multipl[] = { 1, 2, 4, 8, 16 };
+MultiOctaveEffectData effect = {
+    .base_instrument_data = (SynthInstrumentData*)&delay,
+    .base_instrument_function = (SynthInstrumentFunction)multiDelayEffect,
     .multiplier_count = sizeof(multipl)/sizeof(multipl[0]),
     .multipliers = multipl,
 };
@@ -67,7 +74,7 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
     }
     for(int i = 0; i < frame_count; i++) {
         for (int c = 0; c < CHANNELS; c++) {
-            out[i][c] = tmp_out[i] / 200;
+            out[i][c] = tmp_out[i] / 20;
         }
     }
     return 0;
