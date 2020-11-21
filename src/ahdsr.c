@@ -11,7 +11,9 @@ void ahdsrEnvelope(SynthEnviormentData* env, AhdsrEnvelopeData* data, SynthNoteD
         for(int i = 0; i < len; i++) {
             tmp_out[i] = 0;
         }
-        data->base_instrument_function(env, data->base_instrument_data, note, len, tmp_out);
+        SynthNoteData virt_note = *note;
+        virt_note.sample_from_noteoff = -1;
+        data->base_instrument_function(env, data->base_instrument_data, &virt_note, len, tmp_out);
         for(int i = 0; i < len && !note->reached_end; i++) {
             float scale = 0;
             float time = (float)(note->sample_from_noteon + i) / (float)env->sample_rate;
@@ -27,6 +29,7 @@ void ahdsrEnvelope(SynthEnviormentData* env, AhdsrEnvelopeData* data, SynthNoteD
                 if (data->sustain == 0.0) {
                     note->reached_end = true;
                     scale = 0.0;
+                    break;
                 } else {
                     scale = data->sustain;
                 }
@@ -35,11 +38,13 @@ void ahdsrEnvelope(SynthEnviormentData* env, AhdsrEnvelopeData* data, SynthNoteD
                 if (data->release == 0.0) {
                     note->reached_end = true;
                     scale = 0;
+                    break;
                 } else {
                     float time = (float)(note->sample_from_noteoff + i) / (float)env->sample_rate;
                     if (time > data->release) {
                         note->reached_end = true;
                         scale = 0;
+                        break;
                     } else {
                         scale *= 1.0 - (time / data->release);
                     }

@@ -12,6 +12,7 @@
 #include "simple.h"
 #include "compination.h"
 #include "ahdsr.h"
+#include "control.h"
 
 #define SAMPLE_RATE 44100
 #define CHANNELS 2
@@ -27,21 +28,21 @@ MultiAdditiveInstrumentData addit = {
     .base_instrument_data = instr_data,
     .base_instrument_function = instr_func,
 };
-float delays[] = { 0.0, 0.005, 0.01 };
+float delays[] = { 0.0, 0.01, 0.05 };
 MultiDelayEffectData delay = {
     .base_instrument_data = (SynthInstrumentData*)&addit,
     .base_instrument_function = (SynthInstrumentFunction)multiAdditiveInstrument,
     .delay_count = sizeof(delays)/sizeof(delays[0]),
     .delays = delays,
 };
-float multipl[] = { 1, 2, 4, 8, 16 };
+float multipl[] = { 1 / 2, 1, 2 };
 MultiOctaveEffectData effect = {
     .base_instrument_data = (SynthInstrumentData*)&delay,
     .base_instrument_function = (SynthInstrumentFunction)multiDelayEffect,
     .multiplier_count = sizeof(multipl)/sizeof(multipl[0]),
     .multipliers = multipl,
 };
-AhdsrEnvelopeData instrument = {
+AhdsrEnvelopeData ahdsr = {
     .base_instrument_data = (SynthInstrumentData*)&effect,
     .base_instrument_function = (SynthInstrumentFunction)multiOctaveEffect,
     .delay = 0.0,
@@ -51,7 +52,20 @@ AhdsrEnvelopeData instrument = {
     .sustain = 0.0,
     .release = 0.25,
 };
+FrequencyControlData frequency = {
+    .base_instrument_data = (SynthInstrumentData*)&ahdsr,
+    .base_instrument_function = (SynthInstrumentFunction)ahdsrEnvelope,
+    .frequency = 1,
+};
+VolumeControlData volume = {
+    .base_instrument_data = (SynthInstrumentData*)&frequency,
+    .base_instrument_function = (SynthInstrumentFunction)frequencyControl,
+    .volume = 0.01,
+};
 int sample = 0;
+
+SynthInstrumentData* instrument_data = (SynthInstrumentData*)&volume;
+SynthInstrumentFunction instrument_function = (SynthInstrumentFunction)volumeControl;
 
 int num_notes = 0;
 SynthNoteData notes[POLYPHONY];
@@ -65,7 +79,7 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
     }
     for(int i = 0; i < POLYPHONY; i++) {
         if(!notes[i].reached_end) {
-            ahdsrEnvelope(&env, &instrument, &notes[i], frame_count, tmp_out);
+            instrument_function(&env, instrument_data, &notes[i], frame_count, tmp_out);
             notes[i].sample_from_noteon += frame_count;
             if(notes[i].sample_from_noteoff >= 0) {
                 notes[i].sample_from_noteoff += frame_count;
@@ -74,7 +88,7 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
     }
     for(int i = 0; i < frame_count; i++) {
         for (int c = 0; c < CHANNELS; c++) {
-            out[i][c] = tmp_out[i] / 20;
+            out[i][c] = tmp_out[i];
         }
     }
     return 0;

@@ -32,11 +32,9 @@ void multiDelayEffect(SynthEnviormentData* env, MultiDelayEffectData* data, Synt
     for(int i = 0; i < data->delay_count; i++) {
         virt_note.sample_from_noteon = note->sample_from_noteon - env->sample_rate * data->delays[i];
         virt_note.sample_from_noteoff = note->sample_from_noteoff - env->sample_rate * data->delays[i];
-        if(virt_note.sample_from_noteon >= 0) {
-            data->base_instrument_function(env, data->base_instrument_data, &virt_note, len, out);
-            if(!virt_note.reached_end) {
-                end = false;
-            }
+        data->base_instrument_function(env, data->base_instrument_data, &virt_note, len, out);
+        if(!virt_note.reached_end) {
+            end = false;
         }
     }
     note->reached_end = end;
