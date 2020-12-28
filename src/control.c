@@ -1,19 +1,17 @@
 
 #include "control.h"
 
-void volumeControl(SynthEnviormentData* env, VolumeControlData* data, SynthNoteData* note, int len, float* out) {
-    data->base_instrument_function(env, data->base_instrument_data, note, len, out);
-    for(int i = 0; i < len; i++) {
-        out[i] *= data->volume;
-    }
+float volumeControl(SynthEnviormentData* env, VolumeControlData* data, SynthNoteData* note) {
+    return data->base_instrument_function(env, data->base_instrument_data, note) * data->volume;
 }
 
-void frequencyControl(SynthEnviormentData* env, FrequencyControlData* data, SynthNoteData* note, int len, float* out) {
+float frequencyControl(SynthEnviormentData* env, FrequencyControlData* data, SynthNoteData* note) {
     SynthNoteData virt_note = *note;
     virt_note.frequency *= data->frequency;
-    data->base_instrument_function(env, data->base_instrument_data, note, len, out);
+    float ret = data->base_instrument_function(env, data->base_instrument_data, note);
     if(virt_note.reached_end) {
         note->reached_end = true;
     }
+    return ret;
 }
 

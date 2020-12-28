@@ -10,7 +10,7 @@ typedef struct {
     float* multipliers;
 } MultiOctaveEffectData;
 
-void multiOctaveEffect(SynthEnviormentData* env, MultiOctaveEffectData* data, SynthNoteData* note, int len, float* out);
+float multiOctaveEffect(SynthEnviormentData* env, MultiOctaveEffectData* data, SynthNoteData* note);
 
 typedef struct {
     int instrument_count;
@@ -18,7 +18,7 @@ typedef struct {
     SynthInstrumentFunction* base_instrument_function;
 } MultiAdditiveInstrumentData;
 
-void multiAdditiveInstrument(SynthEnviormentData* env, MultiAdditiveInstrumentData* data, SynthNoteData* note, int len, float* out);
+float multiAdditiveInstrument(SynthEnviormentData* env, MultiAdditiveInstrumentData* data, SynthNoteData* note);
 
 typedef struct {
     SynthInstrumentData* base_instrument_data;
@@ -27,6 +27,6 @@ typedef struct {
     float* delays;
 } MultiDelayEffectData;
 
-void multiDelayEffect(SynthEnviormentData* env, MultiDelayEffectData* data, SynthNoteData* note, int len, float* out);
+float multiDelayEffect(SynthEnviormentData* env, MultiDelayEffectData* data, SynthNoteData* note);
 
 #endif

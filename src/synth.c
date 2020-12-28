@@ -60,7 +60,7 @@ FrequencyControlData frequency = {
 VolumeControlData volume = {
     .base_instrument_data = (SynthInstrumentData*)&frequency,
     .base_instrument_function = (SynthInstrumentFunction)frequencyControl,
-    .volume = 0.01,
+    .volume = 0.05,
 };
 int sample = 0;
 
@@ -73,22 +73,23 @@ int note_to_last_notes[128];
 
 int audioCallback(const void* input, void* output, uint64_t frame_count, const PaStreamCallbackTimeInfo* time_info, PaStreamCallbackFlags status_flage, void* user_data) {
     float (*out)[CHANNELS] = (float(*)[CHANNELS])output;
-    float tmp_out[frame_count];
     for(int i = 0; i < frame_count; i++) {
-        tmp_out[i] = 0;
+        for(int c = 0; c < CHANNELS; c++) {
+            out[i][c] = 0;
+        }
     }
     for(int i = 0; i < POLYPHONY; i++) {
         if(!notes[i].reached_end) {
-            instrument_function(&env, instrument_data, &notes[i], frame_count, tmp_out);
-            notes[i].sample_from_noteon += frame_count;
-            if(notes[i].sample_from_noteoff >= 0) {
-                notes[i].sample_from_noteoff += frame_count;
+            for(int j = 0; j < frame_count; j++) {
+                float val = instrument_function(&env, instrument_data, &notes[i]);
+                notes[i].sample_from_noteon++;
+                if(notes[i].sample_from_noteoff >= 0) {
+                    notes[i].sample_from_noteoff++;
+                }
+                for (int c = 0; c < CHANNELS; c++) {
+                    out[j][c] += val;
+                }
             }
-        }
-    }
-    for(int i = 0; i < frame_count; i++) {
-        for (int c = 0; c < CHANNELS; c++) {
-            out[i][c] = tmp_out[i];
         }
     }
     return 0;

@@ -9,7 +9,7 @@ typedef struct {
     float volume;
 } VolumeControlData;
 
-void volumeControl(SynthEnviormentData* env, VolumeControlData* data, SynthNoteData* note, int len, float* out);
+float volumeControl(SynthEnviormentData* env, VolumeControlData* data, SynthNoteData* note);
 
 typedef struct {
     SynthInstrumentData* base_instrument_data;
@@ -17,7 +17,7 @@ typedef struct {
     float frequency;
 } FrequencyControlData;
 
-void frequencyControl(SynthEnviormentData* env, FrequencyControlData* data, SynthNoteData* note, int len, float* out);
+float frequencyControl(SynthEnviormentData* env, FrequencyControlData* data, SynthNoteData* note);
 
 
 #endif
