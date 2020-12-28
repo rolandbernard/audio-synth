@@ -10,19 +10,10 @@ typedef struct {
     SynthInstrumentFunction modulator_function;
     float base;
     float amplitude;
-} FmSynthData;
+} ModulationSynthData;
 
-float fmSynth(SynthEnviormentData* env, FmSynthData* data, SynthNoteData* note);
+float fmSynth(SynthEnviormentData* env, ModulationSynthData* data, SynthNoteData* note);
 
-typedef struct {
-    SynthInstrumentData* carrier_data;
-    SynthInstrumentFunction carrier_function;
-    SynthInstrumentData* modulator_data;
-    SynthInstrumentFunction modulator_function;
-    float base;
-    float amplitude;
-} AmSynthData;
-
-float amSynth(SynthEnviormentData* env, AmSynthData* data, SynthNoteData* note);
+float amSynth(SynthEnviormentData* env, ModulationSynthData* data, SynthNoteData* note);
 
 #endif

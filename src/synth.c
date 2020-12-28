@@ -11,7 +11,7 @@
 
 #include "simple.h"
 #include "compination.h"
-#include "ahdsr.h"
+#include "envelope.h"
 #include "control.h"
 #include "modulate.h"
 
@@ -22,28 +22,62 @@
 
 SynthEnviormentData env = { SAMPLE_RATE };
 SimpleWaveSynthInstrumentData params = { 0.1 };
-ConstFrequencyControlData freq_data = {
-    .base_instrument_data = (SynthInstrumentData*)&params,
-    .base_instrument_function = (SynthInstrumentFunction)simpleSineWaveSynth,
-    .frequency = 2,
+ConstantInstrumentData const_data = { 1.0 };
+AhdsrEnvelopeData freq_env = {
+    .base_instrument_data = (SynthInstrumentData*)&const_data,
+    .base_instrument_function = (SynthInstrumentFunction)constantValue,
+    .delay = 0.0,
+    .attack = 0.0,
+    .hold = 0.0,
+    .decay = 0.2,
+    .sustain = 0.0,
+    .release = 0.0,
 };
-AmSynthData am_data = {
-    .carrier_data = (SynthInstrumentData*)&params,
-    .carrier_function = (SynthInstrumentFunction)simpleSineWaveSynth,
-    .modulator_data = (SynthInstrumentData*)&freq_data,
-    .modulator_function = (SynthInstrumentFunction)constFrequencyControl,
-    .base = 0.75,
-    .amplitude = 0.25,
+// SynthInstrumentData* data[] = { (SynthInstrumentData*)&params, (SynthInstrumentData*)&params, (SynthInstrumentData*)&params };
+// SynthInstrumentFunction funcs[] = { (SynthInstrumentFunction)simpleSineWaveSynth, (SynthInstrumentFunction)simpleSquareWaveSynth, (SynthInstrumentFunction)simpleTriangleWaveSynth };
+SynthInstrumentData* data[] = { (SynthInstrumentData*)&params };
+SynthInstrumentFunction funcs[] = { (SynthInstrumentFunction)simpleSineWaveSynth };
+MultiAdditiveInstrumentData additiv = {
+    .instrument_count = sizeof(data)/sizeof(data[0]),
+    .base_instrument_data = (SynthInstrumentData**)&data,
+    .base_instrument_function = (SynthInstrumentFunction*)&funcs,
+};
+ModulationSynthData am_data = {
+    .carrier_data = (SynthInstrumentData*)&additiv,
+    .carrier_function = (SynthInstrumentFunction)multiAdditiveInstrument,
+    .modulator_data = (SynthInstrumentData*)&freq_env,
+    .modulator_function = (SynthInstrumentFunction)ahdsrEnvelope,
+    .base = 1,
+    .amplitude = 0.1,
+};
+float octave_mults[] = { 0.125, 0.25, 0.5, 1, 2, 4, 8 };
+// float octave_mults[] = { 1 };
+MultiOctaveEffectData octave = {
+    .base_instrument_data = (SynthInstrumentData*)&am_data,
+    .base_instrument_function = (SynthInstrumentFunction)fmSynth,
+    .multiplier_count = sizeof(octave_mults) / sizeof(octave_mults[0]),
+    .multipliers = octave_mults,
 };
 VolumeControlData volume = {
-    .base_instrument_data = (SynthInstrumentData*)&am_data,
-    .base_instrument_function = (SynthInstrumentFunction)amSynth,
-    .volume = 0.1,
+    .base_instrument_data = (SynthInstrumentData*)&octave,
+    .base_instrument_function = (SynthInstrumentFunction)multiOctaveEffect,
+    .volume = 0.01,
+    // .volume = 0.05,
+};
+AhdsrEnvelopeData envelope = {
+    .base_instrument_data = (SynthInstrumentData*)&volume,
+    .base_instrument_function = (SynthInstrumentFunction)volumeControl,
+    .delay = 0.0,
+    .attack = 0.1,
+    .hold = 0.0,
+    .decay = 0.75,
+    .sustain = 1.0,
+    .release = 0.5,
 };
 int sample = 0;
 
-SynthInstrumentData* instrument_data = (SynthInstrumentData*)&volume;
-SynthInstrumentFunction instrument_function = (SynthInstrumentFunction)volumeControl;
+SynthInstrumentData* instrument_data = (SynthInstrumentData*)&envelope;
+SynthInstrumentFunction instrument_function = (SynthInstrumentFunction)ahdsrEnvelope;
 
 int num_notes = 0;
 SynthNoteData notes[POLYPHONY];
@@ -57,12 +91,12 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
         }
     }
     for(int i = 0; i < POLYPHONY; i++) {
-        if(!notes[i].reached_end) {
-            for(int j = 0; j < frame_count; j++) {
+        if(notes[i].pressed) {
+            for(int j = 0; !notes[i].reached_end && j < frame_count; j++) {
                 float val = instrument_function(&env, instrument_data, &notes[i]);
-                notes[i].sample_from_noteon++;
-                if(notes[i].sample_from_noteoff >= 0) {
-                    notes[i].sample_from_noteoff++;
+                notes[i].time_from_noteon += 1.0 / env.sample_rate;
+                if (notes[i].released) {
+                    notes[i].time_from_noteoff += 1.0 / env.sample_rate;
                 }
                 for (int c = 0; c < CHANNELS; c++) {
                     out[j][c] += val;
@@ -75,8 +109,11 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
 
 int main(int argc, char** argv) {
     for(int i = 0; i < POLYPHONY; i++) {
-        notes[i].sample_from_noteoff = -1;
-        notes[i].sample_from_noteon = -1;
+        notes[i].time_from_noteoff = 0;
+        notes[i].time_from_noteon = 0;
+        notes[i].sampling_position = 0;
+        notes[i].pressed = false;
+        notes[i].released = false;
         notes[i].reached_end = true;
     }
     for(int i = 0; i < 128; i++) {
@@ -119,15 +156,17 @@ int main(int argc, char** argv) {
                         int note_vel = Pm_MessageData2(buffer[i].message);
                         int note_index = note_to_last_notes[note_num];
                         if(note_index >= 0) {
-                            notes[note_index].sample_from_noteoff = 0;
+                            notes[note_index].time_from_noteoff = 0;
+                            notes[note_index].released = true;
                             notes[note_index].noteoff_velocity = 64;
                             note_to_last_notes[note_num] = -1;
                         }
                         if(note_vel > 0) {
                             notes[num_notes].frequency = note_frequencies[note_num];
-                            notes[num_notes].sample_from_noteon = 0;
-                            notes[num_notes].sample_from_noteoff = -1;
+                            notes[num_notes].time_from_noteon = 0;
+                            notes[num_notes].pressed = true;
                             notes[num_notes].noteon_velocity = note_vel;
+                            notes[num_notes].sampling_position = 0;
                             notes[num_notes].reached_end = false;
                             note_to_last_notes[note_num] = num_notes;
                             num_notes = (num_notes + 1) % POLYPHONY;
@@ -137,8 +176,9 @@ int main(int argc, char** argv) {
                         int note_vel = Pm_MessageData2(buffer[i].message);
                         int note_index = note_to_last_notes[note_num];
                         if(note_index >= 0) {
-                            notes[note_index].sample_from_noteoff = 0;
+                            notes[note_index].time_from_noteoff = 0;
                             notes[note_index].noteoff_velocity = note_vel;
+                            notes[note_index].released = true;
                             note_to_last_notes[note_num] = -1;
                         }
                     } else {

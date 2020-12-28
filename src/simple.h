@@ -13,6 +13,12 @@ float simpleSquareWaveSynth(SynthEnviormentData* env, SimpleWaveSynthInstrumentD
 
 float simpleTriangleWaveSynth(SynthEnviormentData* env, SimpleWaveSynthInstrumentData* instrument, SynthNoteData* note);
 
+float simpleTimedSineWaveSynth(SynthEnviormentData* env, SynthInstrumentData* instrument, SynthNoteData* note);
+
+float simpleTimedSquareWaveSynth(SynthEnviormentData* env, SimpleWaveSynthInstrumentData* instrument, SynthNoteData* note);
+
+float simpleTimedTriangleWaveSynth(SynthEnviormentData* env, SimpleWaveSynthInstrumentData* instrument, SynthNoteData* note);
+
 typedef struct {
     float value;
 } ConstantInstrumentData;

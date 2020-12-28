@@ -6,8 +6,7 @@ SDIR=./src
 
 CC=clang
 LINK=clang
-DFLAGS=-g -O0 -fsanitize=address
-RFLAGS=-O3
+RFLAGS=-Ofast
 CFLAGS=-I$(IDIR) -Wall $(RFLAGS) -flto=thin
 LIBS=-lpthread -lportaudio -lportmidi -lm
 

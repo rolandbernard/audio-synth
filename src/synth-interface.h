@@ -13,12 +13,15 @@ typedef struct {
 
 typedef struct {
     float frequency;
-    long sample_from_noteon;
-    int noteon_velocity;
-    int aftertouch;
-    long sample_from_noteoff;
-    int noteoff_velocity;
+    float time_from_noteon;
+    float time_from_noteoff;
+    float sampling_position;
+    bool pressed;
+    bool released;
     bool reached_end;
+    int noteon_velocity;
+    int noteoff_velocity;
+    int aftertouch;
 } SynthNoteData;
 
 typedef float (*SynthInstrumentFunction)(SynthEnviormentData* env, SynthInstrumentData* instrument, SynthNoteData* note);

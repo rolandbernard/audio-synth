@@ -1,19 +1,14 @@
 
 #include <stdio.h>
 
-#include "ahdsr.h"
+#include "envelope.h"
 
 float ahdsrEnvelope(SynthEnviormentData* env, AhdsrEnvelopeData* data, SynthNoteData* note) {
-    if(note->reached_end) {
-        return 0.0;
-    } else {
-        SynthNoteData virt_note = *note;
-        virt_note.sample_from_noteoff = -1;
-        float ret = data->base_instrument_function(env, data->base_instrument_data, &virt_note);
-        float scale = 0;
-        float time = (float)note->sample_from_noteon / (float)env->sample_rate;
+    if (!note->reached_end) {
+        float scale = 0.0;
+        float time = note->time_from_noteon;
         if (time < data->delay) {
-            scale = 0.0;
+            return 0.0;
         } else if (time - data->delay < data->attack) {
             scale = (time - data->delay) / data->attack;
         } else if (time - data->delay - data->attack < data->hold) {
@@ -23,25 +18,35 @@ float ahdsrEnvelope(SynthEnviormentData* env, AhdsrEnvelopeData* data, SynthNote
         } else {
             if (data->sustain == 0.0) {
                 note->reached_end = true;
-                scale = 0.0;
+                return 0.0;
             } else {
                 scale = data->sustain;
             }
         }
-        if (note->sample_from_noteoff >= 0) {
+        if (note->released) {
             if (data->release == 0.0) {
                 note->reached_end = true;
-                scale = 0;
+                return 0.0;
             } else {
-                float time = (float)note->sample_from_noteoff / (float)env->sample_rate;
+                float time = note->time_from_noteoff;
                 if (time > data->release) {
                     note->reached_end = true;
-                    scale = 0;
+                    return 0.0;
                 } else {
                     scale *= 1.0 - (time / data->release);
                 }
             }
         }
-        return ret * scale;
+        return scale * data->base_instrument_function(env, data->base_instrument_data, note);
+    }
+    return 0.0;
+}
+
+float simpleEnvelope(SynthEnviormentData* env, SimpleEnvelopeData* data, SynthNoteData* note) {
+    if(!note->released && !note->reached_end) {
+        return data->base_instrument_function(env, data->base_instrument_data, note);
+    } else {
+        note->reached_end = true;
+        return 0.0;
     }
 }

@@ -16,4 +16,11 @@ typedef struct {
 
 float ahdsrEnvelope(SynthEnviormentData* env, AhdsrEnvelopeData* data, SynthNoteData* note);
 
+typedef struct {
+    SynthInstrumentData* base_instrument_data;
+    SynthInstrumentFunction base_instrument_function;
+} SimpleEnvelopeData;
+
+float simpleEnvelope(SynthEnviormentData* env, SimpleEnvelopeData* data, SynthNoteData* note);
+
 #endif
