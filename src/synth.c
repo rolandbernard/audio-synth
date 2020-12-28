@@ -13,6 +13,7 @@
 #include "compination.h"
 #include "ahdsr.h"
 #include "control.h"
+#include "modulate.h"
 
 #define SAMPLE_RATE 44100
 #define CHANNELS 2
@@ -21,46 +22,23 @@
 
 SynthEnviormentData env = { SAMPLE_RATE };
 SimpleWaveSynthInstrumentData params = { 0.1 };
-SynthInstrumentData* instr_data[] = { (SynthInstrumentData*)&params, (SynthInstrumentData*)&params,  (SynthInstrumentData*)&params};
-SynthInstrumentFunction instr_func[] = { (SynthInstrumentFunction)simpleSineWaveSynth, (SynthInstrumentFunction)simpleTriangleWaveSynth, (SynthInstrumentFunction)simpleSquareWaveSynth };
-MultiAdditiveInstrumentData addit = {
-    .instrument_count = 2,
-    .base_instrument_data = instr_data,
-    .base_instrument_function = instr_func,
+ConstFrequencyControlData freq_data = {
+    .base_instrument_data = (SynthInstrumentData*)&params,
+    .base_instrument_function = (SynthInstrumentFunction)simpleSineWaveSynth,
+    .frequency = 2,
 };
-float delays[] = { 0.0, 0.01, 0.05 };
-MultiDelayEffectData delay = {
-    .base_instrument_data = (SynthInstrumentData*)&addit,
-    .base_instrument_function = (SynthInstrumentFunction)multiAdditiveInstrument,
-    .delay_count = sizeof(delays)/sizeof(delays[0]),
-    .delays = delays,
-};
-float multipl[] = { 1 / 2, 1, 2 };
-MultiOctaveEffectData effect = {
-    .base_instrument_data = (SynthInstrumentData*)&delay,
-    .base_instrument_function = (SynthInstrumentFunction)multiDelayEffect,
-    .multiplier_count = sizeof(multipl)/sizeof(multipl[0]),
-    .multipliers = multipl,
-};
-AhdsrEnvelopeData ahdsr = {
-    .base_instrument_data = (SynthInstrumentData*)&effect,
-    .base_instrument_function = (SynthInstrumentFunction)multiOctaveEffect,
-    .delay = 0.0,
-    .attack = 0.05,
-    .hold = 0.05,
-    .decay = 2.0,
-    .sustain = 0.0,
-    .release = 0.25,
-};
-FrequencyControlData frequency = {
-    .base_instrument_data = (SynthInstrumentData*)&ahdsr,
-    .base_instrument_function = (SynthInstrumentFunction)ahdsrEnvelope,
-    .frequency = 1,
+AmSynthData am_data = {
+    .carrier_data = (SynthInstrumentData*)&params,
+    .carrier_function = (SynthInstrumentFunction)simpleSineWaveSynth,
+    .modulator_data = (SynthInstrumentData*)&freq_data,
+    .modulator_function = (SynthInstrumentFunction)constFrequencyControl,
+    .base = 0.75,
+    .amplitude = 0.25,
 };
 VolumeControlData volume = {
-    .base_instrument_data = (SynthInstrumentData*)&frequency,
-    .base_instrument_function = (SynthInstrumentFunction)frequencyControl,
-    .volume = 0.05,
+    .base_instrument_data = (SynthInstrumentData*)&am_data,
+    .base_instrument_function = (SynthInstrumentFunction)amSynth,
+    .volume = 0.1,
 };
 int sample = 0;
 
