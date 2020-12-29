@@ -20,7 +20,10 @@
 #define BIT_SIZE 16
 #define POLYPHONY 500
 
-SynthEnviormentData env = { SAMPLE_RATE };
+int controls[16][128];
+SynthEnviormentData env = {
+    .sample_rate = SAMPLE_RATE,
+};
 SimpleWaveSynthInstrumentData params = { 0.1 };
 ConstantInstrumentData const_data = { 1.0 };
 AhdsrEnvelopeData freq_env = {
@@ -29,9 +32,9 @@ AhdsrEnvelopeData freq_env = {
     .delay = 0.0,
     .attack = 0.0,
     .hold = 0.0,
-    .decay = 0.2,
-    .sustain = 0.0,
-    .release = 0.0,
+    .decay = 0.0,
+    .sustain = 1.0,
+    .release = 0.5,
 };
 // SynthInstrumentData* data[] = { (SynthInstrumentData*)&params, (SynthInstrumentData*)&params, (SynthInstrumentData*)&params };
 // SynthInstrumentFunction funcs[] = { (SynthInstrumentFunction)simpleSineWaveSynth, (SynthInstrumentFunction)simpleSquareWaveSynth, (SynthInstrumentFunction)simpleTriangleWaveSynth };
@@ -48,7 +51,7 @@ ModulationSynthData am_data = {
     .modulator_data = (SynthInstrumentData*)&freq_env,
     .modulator_function = (SynthInstrumentFunction)ahdsrEnvelope,
     .base = 1,
-    .amplitude = 0.1,
+    .amplitude = 0.01,
 };
 float octave_mults[] = { 0.125, 0.25, 0.5, 1, 2, 4, 8 };
 // float octave_mults[] = { 1 };
@@ -58,29 +61,71 @@ MultiOctaveEffectData octave = {
     .multiplier_count = sizeof(octave_mults) / sizeof(octave_mults[0]),
     .multipliers = octave_mults,
 };
-VolumeControlData volume = {
+VolumeControlData volume_vel = {
     .base_instrument_data = (SynthInstrumentData*)&octave,
     .base_instrument_function = (SynthInstrumentFunction)multiOctaveEffect,
+    .volume = 1.0,
+    // .volume = 0.05,
+};
+VelocityFloatValueData vel_vol_contr = {
+    .base_instrument_data = (SynthInstrumentData*)&volume_vel,
+    .base_instrument_function = (SynthInstrumentFunction)volumeControl,
+    .write_to = &volume_vel.volume,
+    .offset = 0,
+    .multiply = 1.0 / 127.0,
+};
+VolumeControlData volume_main = {
+    .base_instrument_data = (SynthInstrumentData*)&vel_vol_contr,
+    .base_instrument_function = (SynthInstrumentFunction)velocityOnFloatValue,
     .volume = 0.01,
     // .volume = 0.05,
 };
-AhdsrEnvelopeData envelope = {
-    .base_instrument_data = (SynthInstrumentData*)&volume,
+ControlFloatValueData vol_contr = {
+    .base_instrument_data = (SynthInstrumentData*)&volume_main,
     .base_instrument_function = (SynthInstrumentFunction)volumeControl,
+    .control_number = 7,
+    .write_to = &volume_main.volume,
+    .offset = 0,
+    .multiply = 1 / 127.0,
+};
+AhdsrEnvelopeData envelope = {
+    .base_instrument_data = (SynthInstrumentData*)&vol_contr,
+    .base_instrument_function = (SynthInstrumentFunction)controlFloatValue,
     .delay = 0.0,
     .attack = 0.1,
     .hold = 0.0,
     .decay = 0.75,
-    .sustain = 1.0,
+    .sustain = 0.2,
     .release = 0.5,
+};
+VelocityFloatValueData vel_atk_contr = {
+    .base_instrument_data = (SynthInstrumentData*)&envelope,
+    .base_instrument_function = (SynthInstrumentFunction)ahdsrEnvelope,
+    .write_to = &envelope.attack,
+    .offset = 0.25,
+    .multiply = -0.25 / 127.0,
+};
+VelocityFloatValueData vel_rls_contr = {
+    .base_instrument_data = (SynthInstrumentData*)&vel_atk_contr,
+    .base_instrument_function = (SynthInstrumentFunction)velocityOnFloatValue,
+    .write_to = &envelope.attack,
+    .offset = 0.25,
+    .multiply = -0.25 / 127.0,
+};
+VolumeControlData volume_final = {
+    .base_instrument_data = (SynthInstrumentData*)&vel_rls_contr,
+    .base_instrument_function = (SynthInstrumentFunction)velocityOffFloatValue,
+    .volume = 0.01,
+    // .volume = 0.05,
 };
 int sample = 0;
 
-SynthInstrumentData* instrument_data = (SynthInstrumentData*)&envelope;
-SynthInstrumentFunction instrument_function = (SynthInstrumentFunction)ahdsrEnvelope;
+SynthInstrumentData* instrument_data = (SynthInstrumentData*)&volume_final;
+SynthInstrumentFunction instrument_function = (SynthInstrumentFunction)volumeControl;
 
 int num_notes = 0;
 SynthNoteData notes[POLYPHONY];
+int note_channel[POLYPHONY];
 int note_to_last_notes[128];
 
 int audioCallback(const void* input, void* output, uint64_t frame_count, const PaStreamCallbackTimeInfo* time_info, PaStreamCallbackFlags status_flage, void* user_data) {
@@ -92,6 +137,7 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
     }
     for(int i = 0; i < POLYPHONY; i++) {
         if(notes[i].pressed) {
+            env.controls = controls[note_channel[i]];
             for(int j = 0; !notes[i].reached_end && j < frame_count; j++) {
                 float val = instrument_function(&env, instrument_data, &notes[i]);
                 notes[i].time_from_noteon += 1.0 / env.sample_rate;
@@ -108,6 +154,9 @@ int audioCallback(const void* input, void* output, uint64_t frame_count, const P
 }
 
 int main(int argc, char** argv) {
+    for(int i = 0; i < 16; i++) {
+        controls[i][7] = 100;
+    }
     for(int i = 0; i < POLYPHONY; i++) {
         notes[i].time_from_noteoff = 0;
         notes[i].time_from_noteon = 0;
@@ -168,12 +217,13 @@ int main(int argc, char** argv) {
                             notes[num_notes].noteon_velocity = note_vel;
                             notes[num_notes].sampling_position = 0;
                             notes[num_notes].reached_end = false;
+                            note_channel[num_notes] = Pm_MessageStatus(buffer[i].message) & 0x0f;
                             note_to_last_notes[note_num] = num_notes;
                             num_notes = (num_notes + 1) % POLYPHONY;
                         }
                     } else if ((Pm_MessageStatus(buffer[i].message) & 0xf0) == 0x80) {
-                        int note_num = Pm_MessageData1(buffer[i].message);
-                        int note_vel = Pm_MessageData2(buffer[i].message);
+                        int note_num = Pm_MessageData1(buffer[i].message) & 0x7f;
+                        int note_vel = Pm_MessageData2(buffer[i].message) & 0x7f;
                         int note_index = note_to_last_notes[note_num];
                         if(note_index >= 0) {
                             notes[note_index].time_from_noteoff = 0;
@@ -181,6 +231,11 @@ int main(int argc, char** argv) {
                             notes[note_index].released = true;
                             note_to_last_notes[note_num] = -1;
                         }
+                    } else if ((Pm_MessageStatus(buffer[i].message) & 0xf0) == 0xB0) {
+                        int control_num = Pm_MessageData1(buffer[i].message) & 0x7f;
+                        int control_val = Pm_MessageData2(buffer[i].message) & 0x7f;
+                        int channel = Pm_MessageStatus(buffer[i].message) & 0x0f;
+                        controls[channel][control_num] = control_val;
                     } else {
                         fprintf(stderr, "%d, %d, %d\n", Pm_MessageStatus(buffer[i].message), Pm_MessageData1(buffer[i].message), Pm_MessageData2(buffer[i].message));
                     }
